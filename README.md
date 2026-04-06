@@ -1,7 +1,6 @@
 # NR Benchmarking
 
-**Traffic Speed Forecasting Under Nonrecurrent Conditions:
-A Causally-Stratified Large-Scale Benchmark**
+**Traffic Speed Forecasting Under Nonrecurrent Conditions: A Large-Scale Empirical Evaluation**
 
 *Andrew J. Bae — Carnegie Mellon University*
 
