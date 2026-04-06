@@ -1,0 +1,49 @@
+# Data (too large for GitHub — see data/README.md for access instructions)
+data/tsmo/*.parquet
+data/tsmo/*.pkl
+data/tsmo/*.npy
+data/tsmo/*.json
+data/tsmo/*.geojson
+data/cranberry/*.parquet
+data/cranberry/*.pkl
+data/cranberry/*.npy
+data/cranberry/*.json
+data/cranberry/*.geojson
+
+# LargeST models (download separately — see external/LargeST/README.md)
+external/LargeST/src/
+external/LargeST/*.py
+external/LargeST/*.md
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.Python
+venv/
+env/
+.env
+
+# LaTeX build artifacts
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.toc
+paper/*.lof
+paper/*.lot
+paper/*.bbl
+paper/*.blg
+paper/*.synctex.gz
+paper/*.fls
+paper/*.fdb_latexmk
+
+# Misc
+.DS_Store
+*.zip
+logs/
+*.log

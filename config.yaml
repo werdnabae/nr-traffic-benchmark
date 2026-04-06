@@ -1,0 +1,182 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# NR Benchmarking — global configuration
+# All relative paths are resolved from the project root (nr-benchmarking/).
+# ─────────────────────────────────────────────────────────────────────────────
+
+paths:
+  # Anomaly Labeling project path — only needed locally to re-generate NR labels.
+  # Not required on JupyterHub (labels are pre-generated and included in data/).
+  anomaly_labeling: "../Anomaly Labeling"
+
+  tsmo:
+    speed:     "data/tsmo/tsmo_speed_data.parquet"
+    incidents: "data/tsmo/tsmo_incident_reports.parquet"
+    geojson:   "data/tsmo/tsmo_network.geojson"
+    upstream:  "data/tsmo/tsmo_upstream_mapping.json"
+    weather:   "data/tsmo/weather.pkl"
+    nr_labels: "data/tsmo/nr_labels_full.parquet"
+    v_rec:     "data/tsmo/v_rec_full.parquet"
+    adjacency: "data/tsmo/adj_mx.npy"
+
+  cranberry:
+    speed:     "data/cranberry/cranberry_speed_data.parquet"
+    incidents: "data/cranberry/cranberry_incident_reports.parquet"
+    geojson:   "data/cranberry/cranberry_network.geojson"
+    upstream:  "data/cranberry/cranberry_upstream_mapping.json"
+    weather:   "data/cranberry/weather.pkl"
+    nr_labels: "data/cranberry/nr_labels_full.parquet"
+    v_rec:     "data/cranberry/v_rec_full.parquet"
+    adjacency: "data/cranberry/adj_mx.npy"
+
+  results:          "results"
+  external_largeST: "external/LargeST"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Data parameters
+# ─────────────────────────────────────────────────────────────────────────────
+data:
+  interval_min: 5       # data resolution (minutes)
+  input_len:    9       # lookback window  = 45 min
+  output_len:   6       # forecast horizon = 30 min
+  train_frac:   0.70
+  val_frac:     0.15
+  # test_frac = 1 - train_frac - val_frac = 0.15
+
+  # Fraction of each network's time series used to calibrate NR-label thresholds
+  # (same protocol as the Anomaly Labeling paper).  NOT the same as train_frac.
+  calib_frac:   0.25
+
+  # Rolling confirmation window for the causal NR label (steps; 3 × 5 min = 15 min)
+  min_dur_steps: 3
+
+  batch_size:   256    # 512 causes CUDA invalid argument in Transformer attention
+  num_workers:  0      # 0 = main-process; num_workers>0 exhausts /dev/shm
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NR label generation (Anomaly Labeling paper — frozen calibrated parameters)
+# ─────────────────────────────────────────────────────────────────────────────
+nr_labeling:
+  snd_c:    2.5   # speed-deviation IQR multiplier
+  grad_c:   1.2   # gradient IQR multiplier
+  conf_f:   0.70  # confirmation speed factor (fraction of FFS)
+  min_dur:  20    # minimum episode duration (minutes) — quality filter only
+  alpha_vrec: 0.7 # v_rec IQR multiplier (recurrent lower-bound speed)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Feature configurations
+# Keys are config IDs used via --feature_config in experiment scripts.
+# "nr_causal" is always the back-filled context-dependent causal label.
+# ─────────────────────────────────────────────────────────────────────────────
+feature_configs:
+  speed:                         ["speed"]
+  speed_weather:                 ["speed", "weather"]
+  speed_incidents:               ["speed", "incidents"]
+  speed_nr:                      ["speed", "nr_causal"]
+  speed_weather_incidents:       ["speed", "weather", "incidents"]
+  # Time-of-day + day-of-week features (raw [0,1] values).
+  # Required for DGCRN and D2STGNN to use their position embeddings correctly.
+  speed_time:                    ["speed", "time"]
+  speed_time_weather:            ["speed", "time", "weather"]
+  speed_time_incidents:          ["speed", "time", "incidents"]
+  speed_time_nr:                 ["speed", "time", "nr_causal"]
+  speed_time_weather_incidents:  ["speed", "time", "weather", "incidents"]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Training defaults (overridable per model via experiments/configs/)
+# ─────────────────────────────────────────────────────────────────────────────
+training:
+  lr:           1.0e-3
+  epochs:       100
+  patience:     10          # early stopping on validation MAE
+  weight_decay: 1.0e-4
+  clip_grad:    5.0         # gradient clipping max norm
+  device:       "cuda"      # "cuda" | "mps" | "cpu"
+  seed:         2024
+  nr_loss_weight: 20        # tuned: best from grid [2,5,10,20] on TSMO val NR MAE
+  finetune_lr_multiplier: 0.1  # default (tuning result lost); middle of grid [0.05,0.1,0.2]
+  multi_obj_nr_weight: 1.0  # NR weight for multi_objective; nr_weight=20 dominates speed loss
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Model-specific hyperparameters
+# ─────────────────────────────────────────────────────────────────────────────
+models:
+  lstm:
+    hidden_dim:  64     # reduced from 128: 4x less gate compute, consistent with LargeST lstm_st
+    num_layers:  2
+    dropout:     0.1
+
+  transformer:
+    d_model:            64    # reduced for speed: 128->64
+    nhead:              4     # reduced: 8->4
+    num_encoder_layers: 2     # reduced: 3->2
+    num_decoder_layers: 1     # reduced: 2->1
+    dim_feedforward:   128    # reduced: 512->128
+    dropout:           0.1
+
+  xgboost:
+    n_estimators:      200   # reduced from 500: 2.5x faster, minimal accuracy loss
+    max_depth:         6
+    learning_rate:     0.05
+    subsample:         0.8
+    colsample_bytree:  0.8
+    n_jobs:            -1
+    random_state:      2024
+
+  linear_ar:
+    alpha:       1.0    # Ridge regularisation strength
+    fit_intercept: true
+
+  # LargeST spatial models — defaults match the LargeST paper
+  dcrnn:
+    diffusion_steps: 2
+    hidden_dim:      64
+    num_layers:      2
+
+  agcrn:
+    hidden_dim:    64
+    cheb_k:        2
+    num_layers:    2
+    embed_dim:     10   # node embedding dimension
+    lr:            0.0005  # reduced from 1e-3 — AGCRN adaptive graph is sensitive to LR
+
+  stgcn:
+    hidden_dim:    64
+    cheb_k:        3
+    num_layers:    5
+
+  gwnet:
+    hidden_dim:    32
+    layers:        4
+    blocks:        4
+    dropout:       0.3
+    adaptive_adj:  true
+
+  astgcn:
+    hidden_dim:    64
+    num_heads:     8
+    num_blocks:    2
+    lr:            0.0002  # reduced: fp32 attention overflows at default lr=1e-3
+
+  sttn:
+    hidden_dim:    64
+    num_heads:     8
+    num_layers:    3
+
+  stgode:
+    hidden_dim:    64
+    ode_func:      "gcn"
+
+  dstagnn:
+    hidden_dim:    64
+    num_heads:     8
+    num_layers:    3
+    lr:            0.0005  # reduced: was diverging on TSMO (N=228) with lr=1e-3
+
+  dgcrn:
+    hidden_dim:    64
+    num_layers:    2
+    k:             2
+
+  d2stgnn:
+    hidden_dim:    64
+    num_layers:    3

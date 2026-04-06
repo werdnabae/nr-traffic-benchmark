@@ -1,0 +1,29 @@
+# Core scientific stack
+numpy>=1.24
+pandas>=2.0
+scipy>=1.10
+
+# Geospatial
+geopandas>=0.14
+shapely>=2.0
+
+# Deep learning
+torch>=2.0
+
+# Machine learning
+scikit-learn>=1.3
+xgboost>=2.0
+
+# Data I/O
+pyarrow>=12.0
+PyYAML>=6.0
+
+# Visualisation
+matplotlib>=3.7
+seaborn>=0.12
+
+# Progress bars
+tqdm>=4.65
+
+# ODE solver (required by STGODE)
+torchdiffeq>=0.2.3
